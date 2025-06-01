@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>3D Interactive Box with Falling Text and Snow</title>
+  <style>
+    body {
+      margin: 0;
+      height: 100vh;
+      background: radial-gradient(circle at center, #111 0%, #000 100%);
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      user-select: none;
+      touch-action: none; /* Prevent default touch behaviors like pinch-to-zoom */
+    }
+
+    .scene {
+      width: 100vw;
+      height: 100vh;
+      perspective: 1500px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+    }
+
+    .cube {
+      width: 70vmin;
+      height: 70vmin;
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform 0.1s;
+      transform: rotateX(0deg) rotateY(0deg);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 10;
+    }
+
+    .face {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      background: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .message {
+      position: absolute;
+      font-size: 48px;
+      font-weight: bold;
+      color: #0ff;
+      animation: colorShift 2s infinite alternate, glow 1s infinite alternate;
+      z-index: 30;
+      text-align: center;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .heart-icon {
+      font-size: 48px;
+      z-index: 30;
+      pointer-events: none;
+      user-select: none;
+      animation: colorShift 2s infinite alternate, glow 1s infinite alternate;
+    }
+
+    .falling-text-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      transform-style: preserve-3d;
+      z-index: 9;
+    }
+
+    .falling-text {
+      position: absolute;
+      font-size: 20px;
+      font-weight: bold;
+      color: #0ff;
+      opacity: 0;
+      animation: fallDown 20s linear forwards, colorShift 2s infinite alternate;
+      user-select: none;
+      white-space: nowrap;
+      text-shadow: 0 0 5px #0ff, 0 0 10px #f0f;
+      pointer-events: none;
+      will-change: transform, opacity;
+    }
+
+    @keyframes fallDown {
+      0% {
+        transform: translateY(-50px);
+        opacity: 0;
+      }
+      5% {
+        opacity: 1;
+      }
+      100% {
+        transform: translateY(100vh);
+        opacity: 0;
+      }
+    }
+
+    @keyframes colorShift {
+      from {
+        color: #0ff;
+      }
+      to {
+        color: #f0f;
+      }
+    }
+
+    @keyframes glow {
+      from {
+        text-shadow: 0 0 10px #0ff;
+      }
+      to {
+        text-shadow: 0 0 20px #f0f;
+      }
+    }
+
+    .snowflake {
+      position: fixed;
+      top: -10px;
+      width: 5px;
+      height: 5px;
+      background: white;
+      border-radius: 50%;
+      opacity: 0.7;
+      pointer-events: none;
+      animation: fall 10s linear infinite;
+      z-index: 1;
+    }
+
+    @keyframes fall {
+      0% {
+        transform: translateY(0) translateX(0);
+        opacity: 0.7;
+      }
+      50% {
+        transform: translateY(50vh) translateX(10px);
+        opacity: 0.5;
+      }
+      100% {
+        transform: translateY(100vh) translateX(-10px);
+        opacity: 0.2;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="scene" id="scene">
+    <div class="cube" id="cube">
+      <div class="face front"></div>
+      <div class="face back"></div>
+      <div class="face right"></div>
+      <div class="face left"></div>
+      <div class="face top"></div>
+      <div class="face bottom"></div>
+      <div class="message">
+        I Love You <span class="heart-icon">❤️</span>
+      </div>
+    </div>
+    <div class="falling-text-container" id="falling-container"></div>
+  </div>
+
+  <script>
+    const cube = document.getElementById('cube');
+    const scene = document.getElementById('scene');
+    const fallingContainer = document.getElementById('falling-container');
+    let isMouseDown = false;
+    let isTouching = false;
+    let lastX = 0;
+    let lastY = 0;
+    let scale = 1;
+    let rotateX = 0;
+    let rotateY = 50; // Initial 50-degree tilt
+    let initialPinchDistance = null;
+
+    // Set initial transform
+    const initialTransform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+    cube.style.transform = initialTransform;
+    fallingContainer.style.transform = initialTransform;
+
+    // Mouse events
+    document.addEventListener('mousedown', (e) => {
+      if (e.button === 0) {
+        isMouseDown = true;
+        lastX = e.clientX;
+        lastY = e.clientY;
+      }
+    });
+
+    document.addEventListener('mouseup', () => {
+      isMouseDown = false;
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isMouseDown) return;
+
+      const deltaX = e.clientX - lastX;
+      const deltaY = e.clientY - lastY;
+      lastX = e.clientX;
+      lastY = e.clientY;
+
+      rotateY += deltaX * 0.5;
+      rotateX -= deltaY * 0.5;
+
+      const transformValue = `rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+      cube.style.transform = transformValue;
+      fallingContainer.style.transform = transformValue;
+    });
+
+    // Touch events
+    document.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 1) {
+        isTouching = true;
+        lastX = e.touches[0].clientX;
+        lastY = e.touches[0].clientY;
+      } else if (e.touches.length === 2) {
+        // Handle pinch-to-zoom
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        initialPinchDistance = Math.sqrt(dx * dx + dy * dy);
+      }
+    });
+
+    document.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      if (e.touches.length === 1 && isTouching) {
+        const deltaX = e.touches[0].clientX - lastX;
+        const deltaY = e.touches[0].clientY - lastY;
+        lastX = e.touches[0].clientX;
+        lastY = e.touches[0].clientY;
+
+        rotateY += deltaX * 0.5;
+        rotateX -= deltaY * 0.5;
+
+        const transformValue = `rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+        cube.style.transform = transformValue;
+        fallingContainer.style.transform = transformValue;
+      } else if (e.touches.length === 2) {
+        // Pinch-to-zoom
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const currentDistance = Math.sqrt(dx * dx + dy * dy);
+
+        if (initialPinchDistance !== null) {
+          const scaleChange = (currentDistance - initialPinchDistance) * 0.005;
+          scale += scaleChange;
+          scale = Math.min(Math.max(0.5, scale), 2);
+          scene.style.transform = `scale(${scale})`;
+        }
+        initialPinchDistance = currentDistance;
+      }
+    }, { passive: false });
+
+    document.addEventListener('touchend', () => {
+      isTouching = false;
+      initialPinchDistance = null;
+    });
+
+    // Mouse wheel for desktop zoom
+    document.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      scale += e.deltaY * -0.001;
+      scale = Math.min(Math.max(0.5, scale), 2);
+      scene.style.transform = `scale(${scale})`;
+    }, { passive: false });
+
+    const texts = ['Tớ Thích Cậu', 'Làm Người Yêu Tớ Nhé', 'Mãi Yêu'];
+
+    function createFallingText(text, delay) {
+      const txt = document.createElement('div');
+      txt.className = 'falling-text';
+      txt.textContent = text;
+
+      const containerWidth = 3000;
+      const containerLeft = (window.innerWidth - containerWidth) / 2;
+
+      txt.style.left = containerLeft + Math.random() * containerWidth + 'px';
+      txt.style.animationDelay = delay + 's';
+      fallingContainer.appendChild(txt);
+
+      setTimeout(() => {
+        txt.remove();
+      }, 21000);
+    }
+
+    function generateTexts() {
+      for (let i = 0; i < 60; i++) {
+        const delay = Math.random() * 20;
+        const text = texts[Math.floor(Math.random() * texts.length)];
+        createFallingText(text, delay);
+      }
+    }
+
+    generateTexts();
+    setInterval(generateTexts, 5000);
+
+    // Snowflakes
+    for (let i = 0; i < 200; i++) {
+      const snow = document.createElement('div');
+      snow.className = 'snowflake';
+      snow.style.left = Math.random() * window.innerWidth + 'px';
+      snow.style.animationDelay = (Math.random() * 10) + 's';
+      snow.style.animationDuration = (5 + Math.random() * 5) + 's';
+      snow.style.opacity = 0.3 + Math.random() * 0.5;
+      document.body.appendChild(snow);
+    }
+  </script>
+</body>
+</html>
